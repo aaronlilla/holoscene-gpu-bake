@@ -1,0 +1,49 @@
+#!/bin/bash
+# Start a GPU-backed Xorg on :0 (nvidia driver, virtual 1920x1080). Run once per pod boot.
+# The nvidia Xorg driver must match the host driver, so it is extracted from NVIDIA's .run at boot.
+set -e
+V=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
+if [ ! -f /usr/lib/xorg/modules/drivers/nvidia_drv.so ]; then
+  cd /tmp
+  wget -q https://us.download.nvidia.com/XFree86/Linux-x86_64/$V/NVIDIA-Linux-x86_64-$V.run -O nv.run
+  sh nv.run -x --target /tmp/nvx >/dev/null
+  mkdir -p /usr/lib/xorg/modules/drivers /usr/lib/xorg/modules/extensions
+  cp /tmp/nvx/nvidia_drv.so /usr/lib/xorg/modules/drivers/
+  cp /tmp/nvx/libglxserver_nvidia.so.$V /usr/lib/xorg/modules/extensions/
+  ln -sf libglxserver_nvidia.so.$V /usr/lib/xorg/modules/extensions/libglxserver_nvidia.so
+  rm -rf /tmp/nv.run /tmp/nvx
+fi
+BUS=$(nvidia-smi --query-gpu=pci.bus_id --format=csv,noheader | head -1)
+IFS=':.' read -r _ b d f <<EOF
+$BUS
+EOF
+PB="PCI:$((16#$b)):$((16#$d)):$((16#$f))"
+cat > /etc/X11/xorg.conf <<EOF
+Section "ServerLayout"
+    Identifier "L"
+    Screen 0 "S"
+EndSection
+Section "Device"
+    Identifier "D"
+    Driver "nvidia"
+    BusID "$PB"
+    Option "AllowEmptyInitialConfiguration" "True"
+    Option "ProbeAllGpus" "False"
+EndSection
+Section "Screen"
+    Identifier "S"
+    Device "D"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Virtual 1920 1080
+    EndSubSection
+EndSection
+Section "ServerFlags"
+    Option "AutoAddGPU" "False"
+EndSection
+EOF
+pkill Xorg 2>/dev/null || true
+nohup Xorg :0 -noreset +extension GLX +extension RANDR +extension RENDER -config /etc/X11/xorg.conf -logfile /var/log/Xorg.0.log vt7 > /var/log/xorg.out 2>&1 &
+sleep 4
+DISPLAY=:0 glxinfo -B | grep -E "OpenGL renderer|direct rendering"
