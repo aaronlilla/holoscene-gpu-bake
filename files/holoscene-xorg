@@ -29,6 +29,7 @@ Section "Device"
     BusID "$PB"
     Option "AllowEmptyInitialConfiguration" "True"
     Option "ProbeAllGpus" "False"
+    Option "UseDisplayDevice" "None"
 EndSection
 Section "Screen"
     Identifier "S"

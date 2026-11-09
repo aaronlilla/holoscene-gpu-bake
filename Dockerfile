@@ -21,5 +21,5 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
     && printf 'export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo\nexport PATH=/opt/cargo/bin:$PATH\n' > /etc/profile.d/rust.sh
 
 COPY files/holoscene-xorg /usr/local/bin/holoscene-xorg
-RUN chmod +x /usr/local/bin/holoscene-xorg \
-    && printf 'export DISPLAY=:0\nexport NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display,video\n' > /etc/profile.d/disp.sh
+RUN mkdir -m 700 /tmp/xdg && chmod +x /usr/local/bin/holoscene-xorg \
+    && printf 'export DISPLAY=:0 XDG_RUNTIME_DIR=/tmp/xdg\nexport NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display,video\n' > /etc/profile.d/disp.sh
